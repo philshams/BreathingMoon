@@ -95,7 +95,6 @@
 
             function timeout(prev_num_breaths) {
                 if (prev_num_breaths == num_breaths) {
-                    socket.emit('timeout');
                     paused = true;
                 }
             }
@@ -193,7 +192,6 @@
 
             function key_down_response(event) {
                 if (!last_event.includes('inhale') && !start_screen) {
-                    socket.emit('client_keydown');
                     num_breaths = num_breaths + 1;
                     setTimeout(timeout, timeout_counter, num_breaths);
                     last_event = 'inhale'
@@ -207,7 +205,6 @@
 
             function key_up_response(event) {
                 if (!last_event.includes('exhale') && !start_screen) {
-                    socket.emit('client_keyup');
                     num_breaths = num_breaths + 1;
                     setTimeout(timeout, timeout_counter, num_breaths);
                     last_event = 'exhale'   
@@ -262,10 +259,6 @@
                 }
             });
 
-            window.onbeforeunload = function () {
-                socket.emit('leave');
-            }
-
             function start_session() {
                 const instructions = document.getElementById("instructions"); 
                 instructions.style.display = "none"
@@ -290,10 +283,6 @@
                 start_screen = false;
 
             }
-
-            socket.on('assign_user_id', function (msg) {
-                user_id = msg;
-            });
 
             function check_value_limits(circle) {
                 if (circle.radius > max_radius || circle.radius < min_radius) {
