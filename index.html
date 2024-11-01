@@ -1,0 +1,523 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <title>Breathing Moon</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000000;
+        }
+
+        #container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #meditationCanvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"
+        integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg=="
+        crossorigin="anonymous">
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"
+        integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ=="
+        crossorigin="anonymous">
+</script>
+<canvas id="meditationCanvas"></canvas>
+<script type="text/javascript" charset="utf-8" > // 
+        $(document).ready(function () {
+
+            const meditationCanvas = document.getElementById('meditationCanvas');
+            meditationCanvas.width = window.innerWidth;
+            meditationCanvas.height = window.innerHeight;
+            const ctx = meditationCanvas.getContext('2d');
+
+            const radius_scale = 0.5;
+            const screen_size_factor = (meditationCanvas.height / 1700) / 0.5;
+            const min_radius = 50 * radius_scale;
+            const start_radius = 80 * radius_scale;
+            const max_radius = 390 * radius_scale;
+
+            const max_ring_width = 800  * radius_scale
+            const color_change = 0.25;
+            const radius_change = 0.6 * radius_scale;
+
+            const max_speed = 2.0;
+            const max_speed_exhale = 1.7;
+            const acceleration_init = 0.06;
+
+            var speed = 0;
+            var counter = 0;
+
+            const ring_color = "rgba(255,255,255"
+            const circle_color = "white"
+            
+            var time_in_session = -1;
+            var timer_on = true;
+
+            var session_duration = 4;
+            var start_time = 0;
+            var press_time = 0;
+
+            user_id = 0;
+
+            const fullscreen_factor = 1.2;
+            var fullscreen = false;
+
+            const x_pos = meditationCanvas.width / 2;
+            const y_pos = meditationCanvas.height * 0.38;
+            const y_pos_non_fullscreen = y_pos / fullscreen_factor;
+
+            var circle_client = {
+                x: x_pos,
+                y: y_pos,
+                radius: start_radius,
+                outer_radius: start_radius + max_ring_width,
+                ring_width: max_ring_width,
+            };
+
+            var num_breaths = 0;
+            var num_breaths_at_marker1 = 9999999;
+            var num_breaths_at_marker2 = 9999999;
+            var num_breaths_at_marker3 = 9999999;
+            const timeout_counter = 20000;
+            var num_active;
+            var last_event = 'paused';
+
+            var start_screen = true;
+            var end_screen = false;
+            var paused = false;
+
+            // Connect to the Socket.IO server.
+            var socket = io("/");
+            console.log(socket)
+
+            function timeout(prev_num_breaths) {
+                if (prev_num_breaths == num_breaths) {
+                    socket.emit('timeout');
+                    paused = true;
+                }
+            }
+
+            function createOuterCircle(circle){
+                const gradient2 = ctx.createRadialGradient(circle.x, circle.y, 0, circle.x, circle.y, circle.outer_radius * screen_size_factor);
+                
+                alpha = Math.max(0.0, Math.min(0.18, 0.09 * (circle.radius / start_radius - 1)))
+                if (end_screen) {
+                    alpha = 0.2
+                }
+                gradient2.addColorStop(0, ring_color + ', 0)');
+                gradient2.addColorStop(circle.radius / circle.outer_radius, ring_color + ', ' + alpha.toString() + ')');
+                gradient2.addColorStop(1, ring_color + ', 0)');
+
+                return gradient2;
+            }
+
+            function drawOuterCircle(circle) {
+                const gradient = createOuterCircle(circle);
+                ctx.beginPath();
+                ctx.arc(circle.x, circle.y, circle.outer_radius * screen_size_factor, 0, 2 * Math.PI);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+
+            function adjust_image(image) {
+                image.style.width = (2 * circle_client.radius * screen_size_factor).toString() + "px"
+                image.style.left = "calc(50% - " + (circle_client.radius * screen_size_factor).toString() + "px)"
+                image.style.top = (circle_client.y - circle_client.radius * screen_size_factor).toString() + "px"
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, meditationCanvas.width, meditationCanvas.height);
+
+                if (!start_screen && !end_screen) {
+                    const moon = document.getElementById("moon");
+                    adjust_image(moon)
+                    drawOuterCircle(circle_client);
+                }
+
+                if (end_screen) {
+                    drawOuterCircle(circle_client);
+                    adjust_image(zen);
+                }
+
+                requestAnimationFrame(animate);
+            }
+
+            function display_prompt() {
+                const instructions2 = document.getElementById("instructions2");
+                press_time = (new Date).getTime()
+                instructions2.style.display = ""
+                instructions2.style.opacity = 1.0
+                return (new Date).getTime()
+            }
+
+            function end_session() {
+                const moon = document.getElementById("moon"); 
+                moon.style.display = "none"
+                const instructions2 = document.getElementById("instructions2");
+                instructions2.style.display = ""
+                instructions2.style.opacity = 1.0
+                instructions2.textContent = "Meditation complete. Well done!"
+                toggle_fullscreen("off")
+                end_screen = true;
+                const zen = document.getElementById("zen");
+                zen.style.display = ""
+
+                circle_client.radius = (3 * start_radius + max_radius) / 4
+                adjust_image(zen)  
+            }
+
+            function verbal_prompt() {
+                const instructions2 = document.getElementById("instructions2");
+                
+                if (num_breaths == 3 || num_breaths == 4 && !end_screen) {
+                    display_prompt()
+                    instructions2.textContent = "Enjoy your " + session_duration.toString() + " minute meditation!"
+                }
+                if (num_breaths == 1 || num_breaths == 2) {
+                    display_prompt()
+                    instructions2.textContent = "Take a deep breath"
+                    start_time = (new Date).getTime();
+                    }
+                if (((new Date).getTime() - start_time) / 1000 / 60 > 0.5 * session_duration && num_breaths < num_breaths_at_marker2 && num_breaths > 4 && !end_screen) {
+                    display_prompt()
+                    num_breaths_at_marker2 = num_breaths
+                    instructions2.textContent = "Halfway done"
+                }
+                if (((new Date).getTime() - start_time) / 1000 / 60 > session_duration && !end_screen) {
+                    end_session()
+                }
+            }
+
+            function key_down_response(event) {
+                if (!last_event.includes('inhale') && !start_screen) {
+                    socket.emit('client_keydown');
+                    num_breaths = num_breaths + 1;
+                    setTimeout(timeout, timeout_counter, num_breaths);
+                    last_event = 'inhale'
+                    paused = false;
+                    
+                    verbal_prompt()
+                    
+                    
+                }
+            }
+
+            function key_up_response(event) {
+                if (!last_event.includes('exhale') && !start_screen) {
+                    socket.emit('client_keyup');
+                    num_breaths = num_breaths + 1;
+                    setTimeout(timeout, timeout_counter, num_breaths);
+                    last_event = 'exhale'   
+                }
+            }
+
+            // Add event listener for the "keydown" event on the document object
+            document.addEventListener('keydown', (event) => {
+                if (event.code === 'Space' || event.code === 'Tab' || event.altKey) {
+                    // Prevent default behavior of the spacebar key
+                    event.preventDefault();
+                }
+                if (event.code === 'Esc') {
+                    toggle_fullscreen("off")
+                } else if (event.altKey) {
+                    
+                } else {
+                    key_down_response(event)
+                }
+
+            });
+ 
+            // Add event listener for the "keyup" event on the document object
+            document.addEventListener('keyup', (event) => {
+                key_up_response(event)
+            });
+
+            // Add event listener for the "keydown" event on the document object
+            document.addEventListener('mousedown', (event) => {
+                key_down_response(event)
+            });
+
+            // Add event listener for the "keyup" event on the document object
+            document.addEventListener('mouseup', (event) => {
+                key_up_response(event)
+            });
+
+            // Add event listener for the "keydown" event on the document object
+            document.addEventListener('touchstart', (event) => {
+                key_down_response(event)
+            });
+
+            // Add event listener for the "keyup" event on the document object
+            document.addEventListener('touchend', (event) => {
+                key_up_response(event)
+            });
+
+            // Add event listener for the "keyup" event on the document object
+            document.addEventListener('dblclick', (event) => {
+                if (!start_screen) {
+                    toggle_fullscreen("toggle")
+                }
+            });
+
+            window.onbeforeunload = function () {
+                socket.emit('leave');
+            }
+
+            function start_session() {
+                const instructions = document.getElementById("instructions"); 
+                instructions.style.display = "none"
+
+                const instructions2 = document.getElementById("instructions2"); 
+                instructions2.style.display = ""
+
+                const header = document.getElementById("header"); 
+                header.style.display = "none"
+
+                const line1 = document.getElementById("line1"); 
+                line1.style.display = "none"
+
+                const stb = document.getElementById('start-button');
+                stb.style.display = "none"
+
+                const moon = document.getElementById("moon"); 
+                moon.style.display = ""
+
+                toggle_fullscreen("on")
+
+                start_screen = false;
+
+            }
+
+            socket.on('assign_user_id', function (msg) {
+                user_id = msg;
+            });
+
+            function check_value_limits(circle) {
+                if (circle.radius > max_radius || circle.radius < min_radius) {
+                    speed = 0
+                }
+                circle.radius = Math.min(circle.radius, max_radius)
+                circle.radius = Math.max(circle.radius, min_radius)
+            }
+
+            function update_inner_circle(circle, speed) {
+                circle.radius += radius_change * speed;
+                check_value_limits(circle)
+            }
+
+            function update_last_event() {
+                if (speed > (0.9*max_speed) && last_event == "inhale") {
+                    counter = 0;
+                    return "inhale (phase 2)"
+                }
+
+                return last_event
+            }
+
+
+            function calculate_speed(last_event, circle) {
+
+                if (last_event == "inhale") {
+                        if (speed < 0) {
+                            return speed + acceleration_init * 1
+                        }
+
+                        return speed + acceleration_init * Math.abs(1 - speed / max_speed)
+                }
+                if (last_event == "exhale") {
+                        if (speed > 0) {
+                            return Math.min(-0.5, -max_speed_exhale * Math.min(1, circle.radius / 90))
+                        }
+                        if (circle.radius > 80){
+                            return -max_speed_exhale
+                        }
+                        return Math.min(-0.1 , speed * .985)
+                }
+
+                if (last_event.includes("phase 2") && counter < 10){
+                    counter = counter + 1;
+                    return speed
+                }
+
+                if (last_event == "inhale (phase 2)") {
+                        return Math.max(0.15, speed*.982)
+                }
+
+                if (last_event == "paused") {
+                    return 0
+                }
+                
+            }
+
+            function update_text() {
+                const text = document.getElementById("instructions2");
+                if (text.style.display == "" && ((new Date).getTime() - press_time) > 2000 && !end_screen && num_breaths > 0) {
+                    text.style.opacity = text.style.opacity - 0.005
+                    if (text.style.opacity < 0.01) {
+                        text.style.display = "none"
+                    }
+                }
+            }
+
+            function update_position() {
+                if (fullscreen && !document.fullscreenElement) {
+                    fullscreen = false;
+                    circle_client.y = y_pos_non_fullscreen
+                }
+                if (!fullscreen && document.fullscreenElement) {
+                    fullscreen = true;
+                    circle_client.y = y_pos
+                }
+            }
+
+
+            // Update the circle color on each frame
+            function update() {
+
+                if (!end_screen) {
+                    last_event = update_last_event()
+                    speed = calculate_speed(last_event, circle_client)
+                    speed = Math.max(speed, -max_speed)
+                    speed = Math.min(speed, max_speed)
+                    
+                    update_inner_circle(circle_client, speed)
+                    update_text()
+                }
+                update_position()
+                
+            }
+
+            function toggle_fullscreen(command) {
+                if (command == "on" || (command != "off" && !document.fullscreenElement)) {
+                    document.documentElement.requestFullscreen();
+                    document.documentElement.setAttribute("fullscreen","")
+
+                } else if (document.fullscreenElement){
+                    document.exitFullscreen();
+                    document.documentElement.removeAttribute("fullscreen"); 
+                }
+            }
+
+            const start_button = document.createElement("button");
+            start_button.setAttribute('id','start-button');
+            start_button.setAttribute('class','start-button noselect');
+            start_button.textContent = 'begin';
+            start_button.addEventListener('click', start_session);
+            start_button.style.display = ""
+            document.body.appendChild(start_button);
+
+            document.body.style.backgroundImage = `url("{{url_for('static', filename='dusk.png')}}")`;
+
+            setInterval(update, 16);
+
+            animate();
+        });
+</script>
+<style>
+
+    .start-button {
+        position: absolute;
+        top:  39.5vh;
+        left: calc(50% - 12vh);
+        background-image: linear-gradient(to right, rgb(255,237,240) 0%, rgb(235,254,255) 60%);
+        border: none;
+        opacity: 0.98;
+        text-align: center;
+        color: royalblue; 
+        cursor:  pointer;
+        border-radius: 10px;
+        display: block;
+        width:  24vh;
+        height:  6vh;
+        line-height: 0px;
+        padding-bottom: 2px;
+        font-size: 3.9vh;
+        font-family: poppins;
+        font-weight: 600;
+        box-shadow:
+        0px 0px 2px 0px lightcyan;
+    }
+
+    .start-button:hover {
+        box-shadow:
+        0px 0px 7px 0px lightcyan;
+        opacity: 1.0;
+    }
+
+
+    .hr-style {
+    border: 0;
+    height: 0.45vh;
+    background-image: linear-gradient(to right, rgb(255,240,200, 0) 3%, rgba(210,230,255, 0.9) 50%, rgba(255,240,200, 0) 97%);
+}
+
+</style>
+<style> 
+.noselect {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+.grad {
+    background-image: linear-gradient(to right, rgb(255,220,255) 0%, rgb(230,252,255) 90%);
+    color: transparent;
+    background-clip: text;
+}
+.grad2 {
+    background-image: linear-gradient(to right, rgb(220,195,255) 10%, rgb(190,250,255) 90%);
+    color: transparent;
+    background-clip: text;
+}
+</style> 
+<style>
+    body {
+      background-size: cover;
+      background-repeat:no-repeat;
+      background-attachment:fixed;
+      background-position:center; 
+    }
+    br {
+    line-height: 200px;
+    }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+
+
+<body>
+
+        <hr id = "line1" class="hr-style" style="position: absolute; top: calc(.1cm + 11.3vh); left: calc(50% - 5.75em); font-size: 5vh; width: 11.5em; text-align: center;">
+
+        <p class="noselect grad2" id = "header" style="position: absolute; top: calc(0.9vh + .1cm); left: calc(50%-5em); width: 10em; text-align: center; font-size: 6vh; font-weight: 800; font-family: poppins;">breathing moon</p>
+
+        <img class="noselect" id="zen" src="{{url_for('static', filename='zengif.gif')}}" style=" position: absolute; top: 220px; left: calc(50% - 100px); width: 200px; text-align: center; height: auto; display: none" alt="zen" />
+
+        <img class="noselect" id="moon" src="{{url_for('static', filename='moon.png')}}" style=" position: absolute; top: 220px; left: calc(50% - 100px); width: 200px; text-align: center; height: auto; display: none" alt="moon" />
+
+        <p class="noselect grad" id="instructions" style="position: absolute; top: 17vh; left: calc(50% - 9em); width: 18em; text-align: justify; text-align-last: justify; font-size: 2.4vh; line-height: 4.0vh; font-family: poppins; font-weight: 400;"><a style = "font-weight: 700;">A relaxing four minute meditation</a> Press and hold as you inhale, and then release as you exhale. Enjoy!</p>
+
+        <p class="noselect grad2" id="instructions2" style="position: absolute; top: 7vh; left: calc(50% - 9em); width: 18em; text-align: center; font-size: 3.5vh; opacity: 1.0; font-family: poppins; font-weight: 400; display: none">Take a deep breath</p>
+
+        <p class="noselect" id="instructions3" style="position: absolute; top: 120px; left: calc(50% - 300px); width: 600px; text-align: center; font-size: 32px; line-height: 32px; opacity: 1.0; font-family: poppins; font-weight: 200; color: lightcyan; text-shadow: 0 0 3px lightblue; display: none"></p>
+    
+        <p class="noselect" id="encourage" style=" position: absolute; top: 390px; left: 180px; width: 20em; text-align: right; font-size: 22px; line-height: 30px; font-family: poppins; color: skyblue"></p>
+    
+
+</body>
+
+</html>
