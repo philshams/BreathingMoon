@@ -93,10 +93,6 @@
             var end_screen = false;
             var paused = false;
 
-            // Connect to the Socket.IO server.
-            var socket = io("/");
-            console.log(socket)
-
             function timeout(prev_num_breaths) {
                 if (prev_num_breaths == num_breaths) {
                     socket.emit('timeout');
