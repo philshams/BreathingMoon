@@ -129,7 +129,17 @@
                 image.style.left = "calc(50% - " + (circle_client.radius * screen_size_factor).toString() + "px)"
                 image.style.top = (circle_client.y - circle_client.radius * screen_size_factor).toString() + "px"
             }
-
+            
+            function drawRects() {
+                const meditationCanvas = document.getElementById('meditationCanvas');
+                meditationCanvas.width = window.innerWidth;
+                meditationCanvas.height = window.innerHeight;
+                const ctx = meditationCanvas.getContext('2d');
+                ctx.fillStyle = "rgba(140,140,140,.1)";
+                ctx.fillRect(0, 0, window.innerWidth / 2 - window.innerHeight / 3, window.innerHeight)
+                ctx.fillRect(window.innerWidth / 2 + window.innerHeight / 3, 0, window.innerWidth / 2 - window.innerHeight / 3, window.innerHeight)
+            }
+            
             function animate() {
                 ctx.clearRect(0, 0, meditationCanvas.width, meditationCanvas.height);
 
@@ -137,6 +147,10 @@
                     const moon = document.getElementById("moon");
                     adjust_image(moon)
                     drawOuterCircle(circle_client);
+                }
+
+                if (start_screen) {
+                    drawRects()
                 }
 
                 if (end_screen) {
