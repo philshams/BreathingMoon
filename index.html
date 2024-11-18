@@ -337,7 +337,7 @@
                         if (speed > 0) {
                             return Math.min(-0.5, -max_speed_exhale * Math.min(1, circle.radius / 90))
                         }
-                        if (circle.radius > 80){
+                        if (circle.radius > 77){
                             return -max_speed_exhale
                         }
                         return Math.min(-0.1 , speed * .985)
@@ -428,7 +428,7 @@
         position: absolute;
         top:  39.5vh;
         left: calc(50% - 12vh);
-        background-image: linear-gradient(to right, rgb(255,220,240) 0%, rgb(230,254,255) 80%);
+        background-image: linear-gradient(to right, rgb(240,220,255) 0%, rgb(240,254,255) 90%);
         border: none;
         opacity: 0.98;
         text-align: center;
@@ -452,6 +452,8 @@
         0px 0px 7px 0px lightcyan;
         opacity: 1.0;
     }
+
+
     .hr-style {
     border: 0;
     height: 0.2vh;
@@ -469,12 +471,12 @@
     user-select: none;
 }
 .grad {
-    background-image: linear-gradient(to right, rgb(255,220,255) 0%, rgb(220,252,255) 90%);
+    background-image: linear-gradient(to right, rgb(255,220,255) 0%, rgb(230,252,255) 90%);
     color: transparent;
     background-clip: text;
 }
 .grad2 {
-    background-image: linear-gradient(to right, rgb(220,195,255) 10%, rgb(190,250,255) 90%);
+    background-image: linear-gradient(to right, rgb(220,195,255) 10%, rgb(210,250,255) 90%);
     color: transparent;
     background-clip: text;
 }
@@ -493,7 +495,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-
 
 <body>
 
