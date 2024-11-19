@@ -51,7 +51,7 @@
             const radius_change = 0.6 * radius_scale;
 
             const max_speed = 2.0;
-            const max_speed_exhale = 1.8;
+            const max_speed_exhale = 1.6;
             const acceleration_init = 0.06;
 
             var speed = 0;
@@ -361,7 +361,7 @@
             }
 
             function update_position() {
-                    circle_client.y = window.innerHeight * 0.46 - 0.5 * circle_client.radius * screen_size_factor
+                    circle_client.y = window.innerHeight * 0.44 - 0.2 * circle_client.radius * screen_size_factor
             }
 
             // Update the circle color on each frame
